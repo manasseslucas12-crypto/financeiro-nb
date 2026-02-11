@@ -5,335 +5,244 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nascimento & Bonfim - Gestão Financeira</title>
   
-  <!-- 1. Estilos Visuais (Tailwind CSS) -->
+  <!-- Estilos Visuais -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- 2. React (O cérebro do site) -->
+  <!-- React -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   
-  <!-- 3. Dependências Críticas para Gráficos (Ordem Importante) -->
-  <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
-  <script src="https://unpkg.com/react-is/umd/react-is.production.min.js"></script>
-  
-  <!-- 4. Gráficos (Recharts) -->
-  <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
-  
-  <!-- 5. Tradutor de Código (Babel) -->
+  <!-- Tradutor de Código -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
-  <!-- 6. FIREBASE COMPAT (Versão que funciona direto no PC) -->
+  <!-- GRÁFICOS (Chart.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- FIREBASE -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
   <style>
-    /* Animações suaves */
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
     .fade-in { animation: fadeIn 0.5s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    body { font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // ============================================================
+    // ÁREA DE CONFIGURAÇÃO - COLE O CÓDIGO DO FIREBASE ABAIXO
+    // ============================================================
     
-    // Configuração segura dos gráficos: se falhar o carregamento, usa componentes vazios para não bloquear o site
-    const RechartsObj = window.Recharts || {};
-    const { 
-      BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend 
-    } = RechartsObj;
-
-    // Se os gráficos não carregarem, esta variável ajuda a esconder as secções de erro
-    const chartsAvailable = !!window.Recharts;
-
-    // --- CONFIGURAÇÃO FIREBASE (AB ADVOCACIA) ---
+    // 1. Apague as linhas abaixo (de const firebaseConfig até o };)
+    // 2. Cole aqui o código que copiou do site do Firebase
+    
     const firebaseConfig = {
       apiKey: "AIzaSyCC1jE63rpMAu_5rfCe5IVhB_ysYCo1bd0",
-      authDomain: "ab-advocacia.firebaseapp.com",
-      projectId: "ab-advocacia",
-      storageBucket: "ab-advocacia.firebasestorage.app",
-      messagingSenderId: "662748092004",
-      appId: "1:662748092004:web:c62513a867eb486ac6b171",
-      measurementId: "G-9380LF0TYF"
+  authDomain: "ab-advocacia.firebaseapp.com",
+  projectId: "ab-advocacia",
+  storageBucket: "ab-advocacia.firebasestorage.app",
+  messagingSenderId: "662748092004",
+  appId: "1:662748092004:web:c62513a867eb486ac6b171",
+  measurementId: "G-9380LF0TYF"
     };
 
-    // Inicialização segura
+    // ============================================================
+
     if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+      try {
+        firebase.initializeApp(firebaseConfig);
+      } catch (e) { console.error("Erro Firebase:", e); }
     }
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    // --- ÍCONES SVG (Para não depender de bibliotecas externas) ---
-    const Icons = {
-      Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>,
-      Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
-      Scale: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>,
-      User: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-      Lock: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-      LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
-    };
+    // --- GRÁFICOS ---
+    const FinanceChart = ({ data, type }) => {
+      const canvasRef = useRef(null);
+      const chartInstance = useRef(null);
 
-    // --- TELA DE LOGIN ---
-    const LoginScreen = ({ onLogin }) => {
-      const [login, setLogin] = useState("");
-      const [senha, setSenha] = useState("");
-      const [erro, setErro] = useState("");
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartInstance.current) chartInstance.current.destroy();
 
-      const handleLogin = (e) => {
-        e.preventDefault();
-        const usuarios = {
-          'Evison Nascimento': 'NB0724',
-          'Adiellyson Bonfim': 'NB0724'
+        const ctx = canvasRef.current.getContext('2d');
+        const config = type === 'bar' ? {
+          type: 'bar',
+          data: {
+            labels: ['Receita', 'Despesa', 'Líquido'],
+            datasets: [{
+              label: 'Valores (R$)',
+              data: [data.receita, data.despesa, data.liquido],
+              backgroundColor: ['#10b981', '#ef4444', '#1e293b'],
+              borderRadius: 4
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        } : {
+          type: 'doughnut',
+          data: {
+            labels: ['Evison', 'Adiellyson', 'Escritório'],
+            datasets: [{
+              data: [data.graficoPizza[0].value, data.graficoPizza[1].value, data.graficoPizza[2].value],
+              backgroundColor: ['#1e293b', '#b49b67', '#94a3b8'],
+              borderWidth: 0
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
         };
 
-        if (usuarios[login] && usuarios[login] === senha) {
-          onLogin(login.split(' ')[0]); // Passa o primeiro nome
-        } else {
-          setErro("Credenciais incorretas.");
-        }
+        chartInstance.current = new Chart(ctx, config);
+        return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+      }, [data, type]);
+
+      return <canvas ref={canvasRef} />;
+    };
+
+    // --- ÍCONES ---
+    const Icons = {
+      Plus: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>,
+      Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>,
+      Scale: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path></svg>,
+      LogOut: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+    };
+
+    // --- LOGIN ---
+    const LoginScreen = ({ onLogin }) => {
+      const [user, setUser] = useState("");
+      const [pass, setPass] = useState("");
+      const [error, setError] = useState("");
+
+      const handle = (e) => {
+        e.preventDefault();
+        const creds = { 'Evison Nascimento': 'NB0724', 'Adiellyson Bonfim': 'NB0724' };
+        if (creds[user] === pass) onLogin(user.split(' ')[0]);
+        else setError("Credenciais incorretas.");
       };
 
       return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden fade-in">
-            <div className="bg-slate-800 p-8 text-center">
-              <div className="text-[#b49b67] flex justify-center mb-4"><Icons.Scale /></div>
-              <h2 className="text-2xl font-bold text-white tracking-widest">NASCIMENTO & BONFIM</h2>
-              <p className="text-slate-400 text-xs uppercase mt-2">Acesso Restrito</p>
+          <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-8 fade-in">
+            <div className="text-center mb-6">
+              <div className="text-[#b49b67] flex justify-center mb-2"><Icons.Scale /></div>
+              <h2 className="text-2xl font-bold text-slate-800">NASCIMENTO & BONFIM</h2>
+              <p className="text-xs text-slate-500 uppercase tracking-widest">Área Restrita</p>
             </div>
-            <form onSubmit={handleLogin} className="p-8 space-y-6">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Login</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-3 text-slate-400"><Icons.User /></span>
-                  <input className="w-full pl-10 p-3 border rounded-lg focus:border-[#b49b67] outline-none" 
-                    placeholder="Nome Completo" value={login} onChange={e => setLogin(e.target.value)} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Senha</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-3 text-slate-400"><Icons.Lock /></span>
-                  <input type="password" className="w-full pl-10 p-3 border rounded-lg focus:border-[#b49b67] outline-none" 
-                    placeholder="••••••" value={senha} onChange={e => setSenha(e.target.value)} />
-                </div>
-              </div>
-              {erro && <div className="p-3 bg-red-50 text-red-600 text-sm rounded">{erro}</div>}
-              <button type="submit" className="w-full bg-slate-900 text-white py-3 rounded-lg hover:bg-slate-800 transition font-bold">ENTRAR</button>
+            <form onSubmit={handle} className="space-y-4">
+              <input className="w-full p-3 border rounded outline-none focus:border-[#b49b67]" placeholder="Login" value={user} onChange={e => setUser(e.target.value)} />
+              <input type="password" className="w-full p-3 border rounded outline-none focus:border-[#b49b67]" placeholder="Senha" value={pass} onChange={e => setPass(e.target.value)} />
+              {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+              <button className="w-full bg-slate-900 text-white py-3 rounded font-bold hover:bg-slate-800 transition">ENTRAR</button>
             </form>
           </div>
         </div>
       );
     };
 
-    // --- APLICAÇÃO PRINCIPAL ---
+    // --- APP ---
     const App = () => {
-      const [autenticado, setAutenticado] = useState(false);
+      const [authOk, setAuthOk] = useState(false);
       const [socio, setSocio] = useState("");
-      const [user, setUser] = useState(null);
       const [transacoes, setTransacoes] = useState([]);
-      const [loading, setLoading] = useState(true);
-      const [modalAberto, setModalAberto] = useState(false);
-      const [aba, setAba] = useState('dashboard');
-      const [salvando, setSalvando] = useState(false);
-      
-      const [novo, setNovo] = useState({
-        data: new Date().toISOString().split('T')[0],
-        tipo: 'entrada',
-        categoria: 'Honorários Contratuais',
-        valor: '',
-        descricao: '',
-        responsavel: 'Escritório'
-      });
+      const [modal, setModal] = useState(false);
+      const [aba, setAba] = useState('dash');
+      const [novo, setNovo] = useState({ data: new Date().toISOString().split('T')[0], tipo: 'entrada', valor: '', descricao: '', categoria: 'Honorários Contratuais', responsavel: 'Escritório' });
 
-      // 1. Autenticação Anônima no Firebase
       useEffect(() => {
-        if (!autenticado) return;
-        auth.signInAnonymously().catch(erro => console.error("Erro auth:", erro));
-        
-        const unsubscribe = auth.onAuthStateChanged(u => {
-          if (u) {
-            setUser(u);
-            setLoading(false);
-          }
+        if (!authOk) return;
+        auth.signInAnonymously().catch(console.error);
+        const unsub = db.collection('financeiro_advocacia').orderBy('criadoEm', 'desc').onSnapshot(snap => {
+          const dados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          dados.sort((a,b) => new Date(b.data) - new Date(a.data));
+          setTransacoes(dados);
+        }, err => {
+          console.error(err);
+          if(err.code === 'permission-denied') alert("Atenção: Permissão negada no banco de dados.");
         });
-        return () => unsubscribe();
-      }, [autenticado]);
+        return () => unsub();
+      }, [authOk]);
 
-      // 2. Carregar Dados do Firestore
-      useEffect(() => {
-        if (!user) return;
-        
-        // Listener em tempo real
-        const unsubscribe = db.collection('financeiro_advocacia')
-          .orderBy('criadoEm', 'desc')
-          .onSnapshot(snapshot => {
-            const dados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // Reordenar por data da transação
-            dados.sort((a, b) => new Date(b.data) - new Date(a.data));
-            setTransacoes(dados);
-            setLoading(false);
-          }, erro => {
-            console.error("Erro ao ler dados:", erro);
-            setLoading(false);
-          });
-
-        return () => unsubscribe();
-      }, [user]);
-
-      // Métricas
       const metricas = useMemo(() => {
-        let rec = 0, desp = 0, custodia = 0;
-        let porSocio = { 'Evison': 0, 'Adiellyson': 0, 'Escritório': 0 };
-
+        let rec = 0, desp = 0, cust = 0;
+        let pSocio = { 'Evison': 0, 'Adiellyson': 0, 'Escritório': 0 };
         transacoes.forEach(t => {
-          const val = parseFloat(t.valor || 0);
-          if (t.categoria === 'Repasse Cliente') {
-            t.tipo === 'entrada' ? custodia += val : custodia -= val;
-          } else {
+          const v = parseFloat(t.valor || 0);
+          if (t.categoria === 'Repasse Cliente') t.tipo === 'entrada' ? cust += v : cust -= v;
+          else {
             if (t.tipo === 'entrada') {
-              rec += val;
-              if (porSocio[t.responsavel] !== undefined) porSocio[t.responsavel] += val;
-              else porSocio['Escritório'] += val;
-            } else {
-              desp += val;
-            }
+              rec += v;
+              if (pSocio[t.responsavel] !== undefined) pSocio[t.responsavel] += v;
+              else pSocio['Escritório'] += v;
+            } else desp += v;
           }
         });
-
-        return {
-          receita: rec,
-          despesa: desp,
-          liquido: rec - desp,
-          custodia: custodia,
-          graficoPizza: [
-            { name: 'Evison', value: porSocio['Evison'] },
-            { name: 'Adiellyson', value: porSocio['Adiellyson'] },
-            { name: 'Escritório', value: porSocio['Escritório'] }
-          ]
-        };
+        return { rec, desp, liq: rec - desp, cust, pSocio };
       }, [transacoes]);
 
-      const formatarMoeda = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-
-      const salvarLancamento = async () => {
-        if (!novo.valor || !user) return;
-        setSalvando(true);
+      const salvar = async () => {
+        if (!novo.valor) return;
         try {
-          await db.collection('financeiro_advocacia').add({
-            ...novo,
-            valor: parseFloat(novo.valor),
-            criadoEm: new Date().toISOString(),
-            userId: user.uid
-          });
-          setModalAberto(false);
-          setNovo({ ...novo, valor: '', descricao: '' });
-        } catch (e) {
-          alert("Erro ao salvar: " + e.message);
-        }
-        setSalvando(false);
+          await db.collection('financeiro_advocacia').add({ ...novo, valor: parseFloat(novo.valor), criadoEm: new Date().toISOString() });
+          setModal(false); setNovo({ ...novo, valor: '', descricao: '' });
+        } catch (e) { alert("Erro ao salvar: " + e.message); }
       };
 
-      const apagarLancamento = async (id) => {
-        if (confirm("Tem certeza que deseja apagar?")) {
-          await db.collection('financeiro_advocacia').doc(id).delete();
-        }
-      };
+      const apagar = async (id) => { if (confirm("Apagar?")) await db.collection('financeiro_advocacia').doc(id).delete(); };
+      const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-      const aoLogar = (nome) => {
-        setAutenticado(true);
-        setSocio(nome);
-        setNovo(prev => ({ ...prev, responsavel: nome }));
-      };
-
-      if (!autenticado) return <LoginScreen onLogin={aoLogar} />;
-      if (loading) return <div className="h-screen flex items-center justify-center text-slate-500">Conectando ao sistema seguro...</div>;
+      if (!authOk) return <LoginScreen onLogin={n => { setAuthOk(true); setSocio(n); setNovo(p => ({...p, responsavel: n})); }} />;
 
       return (
         <div className="min-h-screen pb-20 fade-in">
-          {/* TOPO */}
-          <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-4 flex justify-between items-center shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="bg-slate-900 text-[#b49b67] p-2 rounded"><Icons.Scale /></div>
-              <div>
-                <h1 className="text-xl font-serif font-bold text-slate-900 leading-none">NASCIMENTO & BONFIM</h1>
-                <span className="text-xs font-bold text-[#b49b67] tracking-widest uppercase">Olá, Dr. {socio}</span>
-              </div>
+          <header className="bg-white border-b px-6 py-4 sticky top-0 z-30 flex justify-between items-center shadow-sm">
+            <div>
+              <h1 className="text-xl font-serif font-bold text-slate-900">NASCIMENTO & BONFIM</h1>
+              <span className="text-xs font-bold text-[#b49b67] tracking-widest uppercase">Olá, Dr. {socio}</span>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setAba('dashboard')} className={`px-4 py-2 rounded text-sm font-bold transition ${aba === 'dashboard' ? 'bg-slate-100 text-slate-900' : 'text-slate-500'}`}>Dashboard</button>
-              <button onClick={() => setAba('extrato')} className={`px-4 py-2 rounded text-sm font-bold transition ${aba === 'extrato' ? 'bg-slate-100 text-slate-900' : 'text-slate-500'}`}>Extrato</button>
-              <button onClick={() => setModalAberto(true)} className="bg-[#b49b67] text-white px-4 py-2 rounded flex items-center gap-2 text-sm font-bold hover:bg-yellow-700 transition"><Icons.Plus /> Novo</button>
-              <button onClick={() => window.location.reload()} className="p-2 text-slate-400 hover:text-red-600"><Icons.LogOut /></button>
+              <button onClick={() => setAba('dash')} className={`px-3 py-1 text-sm rounded font-bold ${aba==='dash'?'bg-slate-100':'text-slate-500'}`}>Dashboard</button>
+              <button onClick={() => setAba('extrato')} className={`px-3 py-1 text-sm rounded font-bold ${aba==='extrato'?'bg-slate-100':'text-slate-500'}`}>Extrato</button>
+              <button onClick={() => setModal(true)} className="bg-[#b49b67] text-white px-3 py-1 rounded text-sm font-bold hover:bg-yellow-600 flex gap-1 items-center"><Icons.Plus/> Novo</button>
+              <button onClick={() => window.location.reload()} className="p-1 text-slate-400 hover:text-red-500"><Icons.LogOut/></button>
             </div>
           </header>
 
           <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-            {aba === 'dashboard' ? (
+            {aba === 'dash' ? (
               <div className="space-y-6 fade-in">
-                {/* CARDS */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-emerald-500">
-                    <p className="text-xs font-bold text-slate-500 uppercase">Faturamento</p>
-                    <h3 className="text-2xl font-bold text-slate-800">{formatarMoeda(metricas.receita)}</h3>
+                  <div className="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500">
+                    <p className="text-xs font-bold text-slate-500">FATURAMENTO</p>
+                    <h3 className="text-2xl font-bold text-slate-800">{fmt(metricas.rec)}</h3>
                   </div>
-                  <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-red-500">
-                    <p className="text-xs font-bold text-slate-500 uppercase">Despesas</p>
-                    <h3 className="text-2xl font-bold text-slate-800">{formatarMoeda(metricas.despesa)}</h3>
+                  <div className="bg-white p-5 rounded-xl shadow-sm border-l-4 border-red-500">
+                    <p className="text-xs font-bold text-slate-500">DESPESAS</p>
+                    <h3 className="text-2xl font-bold text-slate-800">{fmt(metricas.desp)}</h3>
                   </div>
-                  <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-slate-800">
-                    <p className="text-xs font-bold text-slate-500 uppercase">Líquido</p>
-                    <h3 className={`text-2xl font-bold ${metricas.liquido >= 0 ? 'text-slate-800' : 'text-red-600'}`}>{formatarMoeda(metricas.liquido)}</h3>
+                  <div className="bg-white p-5 rounded-xl shadow-sm border-l-4 border-slate-800">
+                    <p className="text-xs font-bold text-slate-500">LÍQUIDO</p>
+                    <h3 className={`text-2xl font-bold ${metricas.liq>=0?'text-slate-800':'text-red-600'}`}>{fmt(metricas.liq)}</h3>
                   </div>
-                  <div className="bg-amber-50 p-6 rounded-xl shadow-sm border-l-4 border-amber-500">
-                    <p className="text-xs font-bold text-amber-700 uppercase">Custódia (Clientes)</p>
-                    <h3 className="text-2xl font-bold text-amber-900">{formatarMoeda(metricas.custodia)}</h3>
+                  <div className="bg-amber-50 p-5 rounded-xl shadow-sm border-l-4 border-amber-500">
+                    <p className="text-xs font-bold text-amber-700">CUSTÓDIA</p>
+                    <h3 className="text-2xl font-bold text-amber-900">{fmt(metricas.cust)}</h3>
                   </div>
                 </div>
-
-                {/* GRÁFICOS */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="bg-white p-6 rounded-xl shadow-sm col-span-2 h-80">
-                    <h4 className="font-serif font-bold text-slate-700 mb-4">Fluxo de Caixa</h4>
-                    {chartsAvailable ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={[
-                          { name: 'Receita', val: metricas.receita, fill: '#10b981' },
-                          { name: 'Despesa', val: metricas.despesa, fill: '#ef4444' },
-                          { name: 'Líquido', val: metricas.liquido, fill: '#1e293b' }
-                        ]}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                          <YAxis axisLine={false} tickLine={false} tickFormatter={v => `R$${v/1000}k`} />
-                          <Tooltip formatter={v => formatarMoeda(v)} cursor={{fill: 'transparent'}} />
-                          <Bar dataKey="val" radius={[4,4,0,0]} barSize={60}>
-                            <Cell fill="#10b981" /><Cell fill="#ef4444" /><Cell fill="#1e293b" />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-slate-400">
-                        <p>Gráficos indisponíveis neste dispositivo.</p>
-                      </div>
-                    )}
+                    <h4 className="font-serif font-bold text-slate-700 mb-4">Fluxo Financeiro</h4>
+                    <div className="h-64"><FinanceChart type="bar" data={metricas} /></div>
                   </div>
                   <div className="bg-white p-6 rounded-xl shadow-sm h-80">
                     <h4 className="font-serif font-bold text-slate-700 mb-4">Origem Receita</h4>
-                    {chartsAvailable && metricas.receita > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={metricas.graficoPizza} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                            <Cell fill="#1e293b" /><Cell fill="#b49b67" /><Cell fill="#94a3b8" />
-                          </Pie>
-                          <Tooltip formatter={v => formatarMoeda(v)} />
-                          <Legend verticalAlign="bottom" />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : <div className="h-full flex items-center justify-center text-slate-400 text-sm">Sem dados suficientes</div>}
+                    <div className="h-64">
+                      {metricas.rec > 0 ? <FinanceChart type="doughnut" data={metricas} /> : <div className="h-full flex items-center justify-center text-slate-400 text-sm">Sem dados</div>}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -341,96 +250,50 @@
               <div className="bg-white rounded-xl shadow-sm overflow-hidden fade-in">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-slate-100 text-slate-500 font-bold border-b">
-                    <tr>
-                      <th className="px-6 py-4">Data</th>
-                      <th className="px-6 py-4">Descrição</th>
-                      <th className="px-6 py-4">Categoria</th>
-                      <th className="px-6 py-4 text-right">Valor</th>
-                      <th className="px-6 py-4 text-center">Ação</th>
-                    </tr>
+                    <tr><th className="px-6 py-4">Data</th><th className="px-6 py-4">Descrição</th><th className="px-6 py-4">Valor</th><th className="px-6 py-4 text-center">Ação</th></tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y">
                     {transacoes.map(t => (
                       <tr key={t.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4 text-slate-500">{new Date(t.data).toLocaleDateString('pt-BR')}</td>
                         <td className="px-6 py-4">
                           <div className="font-bold text-slate-700">{t.descricao}</div>
-                          <div className="text-xs text-slate-400">{t.responsavel}</div>
+                          <div className="text-xs text-slate-400 uppercase">{t.responsavel} • {t.categoria}</div>
                         </td>
-                        <td className="px-6 py-4"><span className="bg-slate-100 px-2 py-1 rounded text-xs text-slate-600">{t.categoria}</span></td>
-                        <td className={`px-6 py-4 text-right font-bold ${t.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {t.tipo === 'saida' ? '-' : ''} {formatarMoeda(t.valor)}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button onClick={() => apagarLancamento(t.id)} className="text-slate-300 hover:text-red-600"><Icons.Trash /></button>
-                        </td>
+                        <td className={`px-6 py-4 font-bold ${t.tipo==='entrada'?'text-emerald-600':'text-red-600'}`}>{t.tipo==='saida'?'-':''} {fmt(t.valor)}</td>
+                        <td className="px-6 py-4 text-center"><button onClick={() => apagar(t.id)} className="text-slate-300 hover:text-red-600"><Icons.Trash /></button></td>
                       </tr>
                     ))}
-                    {transacoes.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-400">Nenhum lançamento encontrado.</td></tr>}
+                    {transacoes.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-400">Nenhum lançamento.</td></tr>}
                   </tbody>
                 </table>
               </div>
             )}
           </main>
 
-          {/* MODAL */}
-          {modalAberto && (
-            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
-                  <h3 className="font-bold flex gap-2"><Icons.Plus /> Novo Lançamento</h3>
-                  <button onClick={() => setModalAberto(false)} className="opacity-70 hover:opacity-100">✕</button>
+          {modal && (
+            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur flex items-center justify-center z-50 p-4 fade-in">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+                <h3 className="font-bold text-lg text-slate-800">Novo Lançamento</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <select className="p-2 border rounded" value={novo.tipo} onChange={e=>setNovo({...novo, tipo:e.target.value})}>
+                    <option value="entrada">Entrada</option><option value="saida">Saída</option>
+                  </select>
+                  <input type="date" className="p-2 border rounded" value={novo.data} onChange={e=>setNovo({...novo, data:e.target.value})}/>
                 </div>
-                <div className="p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase">Tipo</label>
-                      <select className="w-full p-2 border rounded" value={novo.tipo} onChange={e => setNovo({...novo, tipo: e.target.value})}>
-                        <option value="entrada">Entrada</option>
-                        <option value="saida">Saída</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase">Data</label>
-                      <input type="date" className="w-full p-2 border rounded" value={novo.data} onChange={e => setNovo({...novo, data: e.target.value})} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">Valor (R$)</label>
-                    <input type="number" placeholder="0,00" className="w-full p-2 border rounded font-bold text-lg" value={novo.valor} onChange={e => setNovo({...novo, valor: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">Descrição</label>
-                    <input type="text" placeholder="Ex: Honorários..." className="w-full p-2 border rounded" value={novo.descricao} onChange={e => setNovo({...novo, descricao: e.target.value})} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase">Categoria</label>
-                      <select className="w-full p-2 border rounded text-sm" value={novo.categoria} onChange={e => setNovo({...novo, categoria: e.target.value})}>
-                        <option>Honorários Contratuais</option>
-                        <option>Sucumbência</option>
-                        <option>Consultoria</option>
-                        <option>Repasse Cliente</option>
-                        <option>Infraestrutura</option>
-                        <option>Pessoal</option>
-                        <option>Tecnologia</option>
-                        <option>Marketing</option>
-                        <option>Impostos</option>
-                        <option>Sócios</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase">Responsável</label>
-                      <select className="w-full p-2 border rounded text-sm" value={novo.responsavel} onChange={e => setNovo({...novo, responsavel: e.target.value})}>
-                        <option>Escritório</option>
-                        <option>Evison</option>
-                        <option>Adiellyson</option>
-                      </select>
-                    </div>
-                  </div>
-                  <button onClick={salvarLancamento} disabled={salvando} className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition mt-2">
-                    {salvando ? 'Salvando...' : 'Confirmar Lançamento'}
-                  </button>
+                <input type="number" placeholder="Valor (R$)" className="w-full p-2 border rounded text-lg font-bold" value={novo.valor} onChange={e=>setNovo({...novo, valor:e.target.value})}/>
+                <input type="text" placeholder="Descrição" className="w-full p-2 border rounded" value={novo.descricao} onChange={e=>setNovo({...novo, descricao:e.target.value})}/>
+                <div className="grid grid-cols-2 gap-4">
+                  <select className="p-2 border rounded text-sm" value={novo.categoria} onChange={e=>setNovo({...novo, categoria:e.target.value})}>
+                    <option>Honorários Contratuais</option><option>Sucumbência</option><option>Consultoria</option><option>Repasse Cliente</option><option>Infraestrutura</option><option>Pessoal</option><option>Tecnologia</option><option>Marketing</option><option>Impostos</option><option>Sócios</option>
+                  </select>
+                  <select className="p-2 border rounded text-sm" value={novo.responsavel} onChange={e=>setNovo({...novo, responsavel:e.target.value})}>
+                    <option>Escritório</option><option>Evison</option><option>Adiellyson</option>
+                  </select>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={()=>setModal(false)} className="flex-1 py-2 border rounded text-slate-500">Cancelar</button>
+                  <button onClick={salvar} className="flex-1 py-2 bg-slate-900 text-white rounded font-bold">Salvar</button>
                 </div>
               </div>
             </div>
